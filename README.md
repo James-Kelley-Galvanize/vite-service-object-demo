@@ -1,100 +1,54 @@
-# React + Vite with Jest Testing
+# Using and Testing a Service Object
 
-### Vite with Jest requires these additional dependencies:
-- **jest**: testing framework
-- **@testing-library/react**: provides utilities for testing React components with simulated user interaction
-- **@testing-library/jest-dom**: provides custom matchers for Jest that allows testing DOM node states
-- **@babel/preset-env**: Babel preset that compiles "fancy" modern JS down to "standard JS" (in order to be compatible with older browsers)
-- **@babel/preset-react**: Babel preset specifically for compiling React-specific code, such as JSX
-- **babel-jest**: Jest transformer that uses Babel to compile JS (this allows Jest to 'understand' JSX and ESM syntax)
-- **jest-environment-jsdom**: Jest environment that simulates a browser-like environment using jsdom, allowing the DOM to be tested in a Node environment (i.e. without a browser)
-- **identity-obj-proxy**: a proxy for CSS modules that allows Jest to mock CSS imports as plain objects, making it easier to test components without loading styles (this prevents errors - you can turn it off in `jest.config.cjs` if you're curious what these errors look like)
+This repo uses a [simple React app (bootstrapped with Vite) with Jest testing configured](https://github.com/gSchool/vite-RTL-jest-starter) to demonstrate some object-oriented separation-of-concerns principles and demonstrate isolating API interaction to an object-oriented Service Object interface that allows easier mocking of API interaction with Jest tests via a simple manual mock implementation of the same API Service Object interface.
 
-# Steps to Recreate this Repo
+## Separation-of-Concerns
+In order to keep all of the API-based asynchronous requests and logic separate from the components of this React app, a Service Object (i.e. an object containing asynchronous methods representing all of the different types of API calls the app might need to make) is declared and exported in `src/services/api_service.js`.  This service represents a nice clean object-oriented approach to separation-of-concerns, keeping app logic and fetch logic essentially entirely separate.  If you need to make a different type of API call, you can now simply add a method that does what you need it to onto the api service object and import that method wherever it is needed in your app.
 
-1. Create vite react template: 
-```bash
-npx create-vite@latest my-react-app --template react
-```
-2. Navigate into your new Vite React app with `cd` and run `git init` to create a `git` repo
-3. Install the dependencies: 
-```bash
-npm install --save-dev jest @testing-library/react @testing-library/jest-dom @babel/preset-env @babel/preset-react babel-jest jest-environment-jsdom identity-obj-proxy
-```
-4. Create Babel config **in project root**: 
-```bash 
-touch babel.config.cjs
-``` 
-> NOTE: this file uses **.cjs** to denote that it is a CommonJS module, otherwise Vite will throw an error when it tries to treat it as ES module syntax
-5. Setup Babel config:
-```js
-//babel.config.cjs
-module.exports = {
-  presets: ["@babel/preset-env", "@babel/preset-react"],
-};
-```
-6. Create a `__mocks__` directory **in project root**: 
-```bash
-mkdir __mocks__
-```
-7. Create simple SVG Transformer **in the `__mocks__` directory**: 
-```bash
-touch svgTransform.js
-```
-> Note: this makes it so that SVGs (a common image type) don't mess with Jest's tests - we will integrate it in the upcoming steps
-8. Setup `svgTransform.js`:
-```js
-//svgTransform.js
-module.exports = {
-  process() {
-    return { code: "module.exports = {};" };
-  },
-  getCacheKey() {
-    return "svgTransform";
-  },
-};
+Asynchronous methods are implemented to request Pokemon, Games (from a given Generation), and Berries.
 
-```
-9. Create Jest config **in project root**: `touch jest.config.cjs` 
-> NOTE: this file uses **.cjs** to denote that it is a CommonJS module, otherwise Vite will throw an error when it tries to treat it as ES module syntax
-10. Setup Jest config:
-```js
-//jest.config.cjs
-module.exports = {
-  testEnvironment: "jsdom",
-  transform: {
-    "^.+\\.jsx?$": "babel-jest",
-  },
-  moduleNameMapper: {
-    "\\.(css|less|sass|scss|png|jpg|ttf|woff|woff2)$": "identity-obj-proxy",
-    "\\.svg$": "<rootDir>/__mocks__/svgTransform.js",
-  },
-  setupFilesAfterEnv: ["<rootDir>/jest.setup.js"],
-};
+## Mocking the Service Object
+Jest can do some nice mocking for us. Creating a mock implementation of the Service Object allows us to mock the data expected from the API without having to repeatedly mock `fetch` in your tests.  Jest allows you to use a specific format to do mocks of modules like this one - create a file with the same name as the module file to be mocked and place it in a `/__mocks__/` directory at the same level as the  module to be mocked.  In this case, that means that this mock implementation is located in `/src/services/__mocks__/api_service.js`.  This file exports an object that resembles the Service Object that interacts with the API, but only simulates that asynchronous interaction by using the mock data exported from `/src/services/__mocks__/api_service.js`. 
 
-```
-> Note: this tells jest how to transform certain sorts of code and modules, as well as what to do after the testing environment is setup (in this case, run the jest setup file that we're about to create)
-11. Create Jest setup file in project root: 
-```bash
-touch jest.setup.js
-```
-12. Setup Jest setup file:
-```js
-// jest.setup.js
-import "@testing-library/jest-dom/";
-```
-> Note: this makes it so we can use the Testing Library methods in Jest tests
-13. Add `test` script to the other scripts in existing `package.json`:
-```json 
-//package.json
-...
-"scripts": {
-   ...
-    "test": "jest --watchAll"
-  },
-...
-```
-14. Create `tests` directory (if desired)
-15. Create your first test (follow traditional Jest naming specifications)
+All of the asynchronous methods on the API Service Object are mocked.
 
-#### Note that the basic Vite React app has been altered slightly (some elements changed/rearranged in `App.jsx`) to allow the tests shown in `App.test.js` to be more specific
+Making sure that this mocking is 'turned on' for the tests is as simple as adding a call to `jest.mock()` in `src/jest.setup.js` and passing in the filepath of the module you want to mock. This is what causes Jest to look for the `__mocks__` folder and find the matching filename to the module that is being mocked - this handles making sure that your API calls are mocked by the time that your tests run.
+
+Example tests are implemented that use the mock data in `/src/tests/App.test.js`
+
+## Diagram Showing Key Modifications for Mocking
+In the following diagram, you can see which directories/files needed to be modified and which directories/files needed to be created in order to make the tests that leverage API mocking contained in `/src/tests/App.test.js` work.
+
+### KEY
+🚧 = Created
+🛠️ = Modified
+```
+.
+├── README.md
+├── __mocks__
+│   └── svgTransform.js
+├── babel.config.cjs
+├── eslint.config.js
+├── index.html
+├── jest.config.cjs
+├── 🛠️jest.setup.js
+├── package-lock.json
+├── package.json
+├── public
+│   └── vite.svg
+├── 🚧services
+│   ├── 🚧__mocks__
+│   │   ├── 🚧api_service.js 
+│   │   └── 🚧mockData.js 
+│   └── 🚧api_service.js
+├── src
+│   ├── App.css
+│   ├── App.jsx
+│   ├── assets
+│   │   └── react.svg
+│   ├── index.css
+│   ├── main.jsx
+│   └── 🚧tests
+│       └── 🚧App.test.js
+└── vite.config.js
+```
